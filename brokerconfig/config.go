@@ -36,6 +36,7 @@ type ServiceConfiguration struct {
 	InstanceLogDirectory        string    `yaml:"log_directory"`
 	ServiceInstanceLimit        int       `yaml:"service_instance_limit"`
 	Dedicated                   Dedicated `yaml:"dedicated"`
+    FirewallAllowRules          []string  `yaml:"firewall_allow_rules"`
 }
 
 type Dedicated struct {
