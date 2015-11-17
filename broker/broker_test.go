@@ -203,6 +203,7 @@ var _ = Describe("Redis service broker", func() {
 					"host":     host,
 					"port":     port,
 					"password": password,
+					"firewall_allow_rules": "",
 				}
 				Ω(credentials).To(Equal(expectedCredentials))
 			})
