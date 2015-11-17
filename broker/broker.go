@@ -5,6 +5,7 @@ import (
 
 	"github.com/pivotal-cf/brokerapi"
 	"github.com/pivotal-cf/cf-redis-broker/brokerconfig"
+"strings"
 )
 
 const (
@@ -121,7 +122,7 @@ func (redisServiceBroker *RedisServiceBroker) Bind(instanceID, bindingID string)
 				"host":     instanceCredentials.Host,
 				"port":     instanceCredentials.Port,
 				"password": instanceCredentials.Password,
-				"firewall_allow_rules": redisServiceBroker.Config.RedisConfiguration.FirewallAllowRules,
+				"firewall_allow_rules": strings.Join(redisServiceBroker.Config.RedisConfiguration.FirewallAllowRules, ","),
 			}
 			return credentialsMap, nil
 		}
