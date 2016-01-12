@@ -37,6 +37,7 @@ type ServiceConfiguration struct {
 	ServiceInstanceLimit        int       `yaml:"service_instance_limit"`
 	Dedicated                   Dedicated `yaml:"dedicated"`
     FirewallAllowRules          []string  `yaml:"firewall_allow_rules"`
+	HostName                    string    `yaml:"host_name"`
 }
 
 type Dedicated struct {

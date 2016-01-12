@@ -119,8 +119,11 @@ func (redisServiceBroker *RedisServiceBroker) Bind(instanceID, bindingID string)
 				return nil, err
 			}
 			credentialsMap := map[string]interface{}{
-				"host":     instanceCredentials.Host,
+//				"host":     instanceCredentials.Host,
+				"host":     redisServiceBroker.Config.RedisConfiguration.HostName,
+				"hostname": redisServiceBroker.Config.RedisConfiguration.HostName,
 				"port":     instanceCredentials.Port,
+				"name": 	instanceID,
 				"password": instanceCredentials.Password,
 				"firewall_allow_rules": strings.Join(redisServiceBroker.Config.RedisConfiguration.FirewallAllowRules, ","),
 			}
