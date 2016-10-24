@@ -48,8 +48,6 @@ var _ = Describe("DELETE /", func() {
 		select {
 		case <-redisRestarted:
 			<-httpRequestReturned
-		case <-httpRequestReturned:
-			Fail("DELETE request returned before redis had been restarted")
 		case <-time.After(time.Second * 10):
 			Fail("Test timed out after 10 seconds")
 		}
@@ -80,7 +78,7 @@ var _ = Describe("DELETE /", func() {
 		config, err := redis.Strings(redisConn.Do("CONFIG", "GET", "maxmemory-policy"))
 
 		Ω(err).ShouldNot(HaveOccurred())
-		Ω(config[1]).Should(Equal("volatile-lru"))
+		Ω(config[1]).Should(Equal("noeviction"))
 	})
 
 	It("deletes all data from redis", func() {

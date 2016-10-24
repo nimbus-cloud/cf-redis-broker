@@ -38,9 +38,7 @@ func main() {
 
 	logger.Info("Starting process monitor")
 
-	repo := &redis.LocalRepository{
-		RedisConf: config.RedisConfiguration,
-	}
+	repo := redis.NewLocalRepository(config.RedisConfiguration, logger)
 
 	commandRunner := system.OSCommandRunner{
 		Logger: logger,
@@ -52,15 +50,13 @@ func main() {
 		CommandRunner:            commandRunner,
 		ProcessChecker:           &process.ProcessChecker{},
 		ProcessKiller:            &process.ProcessKiller{},
+		PingFunc:                 redis.PingServer,
 		WaitUntilConnectableFunc: availability.Check,
 	}
 
 	checkInterval := config.RedisConfiguration.ProcessCheckIntervalSeconds
 
-	instances, err := repo.AllInstances()
-	if err != nil {
-		logger.Error("error getting list of instances", err)
-	}
+	instances, _ := repo.AllInstancesVerbose()
 
 	for _, instance := range instances {
 		copyConfigFile(instance, repo, logger)
@@ -70,10 +66,7 @@ func main() {
 		if skipProcessCheck {
 			logger.Info("Skipping instance check")
 		} else {
-			instances, err := repo.AllInstances()
-			if err != nil {
-				logger.Error("error getting list of instances", err)
-			}
+			instances, _ := repo.AllInstances()
 
 			for _, instance := range instances {
 				ensureRunningIfNotLocked(instance, repo, processController, logger)

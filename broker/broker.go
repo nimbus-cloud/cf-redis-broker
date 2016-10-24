@@ -97,7 +97,12 @@ func (redisServiceBroker *RedisServiceBroker) Provision(instanceID string, servi
 		return errors.New("instance creator not found for plan")
 	}
 
-	return instanceCreator.Create(instanceID)
+	err := instanceCreator.Create(instanceID)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (redisServiceBroker *RedisServiceBroker) Deprovision(instanceID string) error {

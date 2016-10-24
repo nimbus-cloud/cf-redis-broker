@@ -1,6 +1,7 @@
 package redis
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
@@ -11,10 +12,19 @@ import (
 	"github.com/pivotal-cf/cf-redis-broker/broker"
 	"github.com/pivotal-cf/cf-redis-broker/brokerconfig"
 	"github.com/pivotal-cf/cf-redis-broker/redisconf"
+	"github.com/pivotal-golang/lager"
 )
 
 type LocalRepository struct {
 	RedisConf brokerconfig.ServiceConfiguration
+	Logger    lager.Logger
+}
+
+func NewLocalRepository(redisConf brokerconfig.ServiceConfiguration, logger lager.Logger) *LocalRepository {
+	return &LocalRepository{
+		RedisConf: redisConf,
+		Logger:    logger,
+	}
 }
 
 func (repo *LocalRepository) FindByID(instanceID string) (*Instance, error) {
@@ -52,9 +62,29 @@ func (repo *LocalRepository) InstanceExists(instanceID string) (bool, error) {
 // EnsureDirectoriesExist -> EnsureLogDirectoryExists
 
 func (repo *LocalRepository) Setup(instance *Instance) error {
-	repo.EnsureDirectoriesExist(instance)
-	repo.Lock(instance)
-	repo.WriteConfigFile(instance)
+	err := repo.EnsureDirectoriesExist(instance)
+	if err != nil {
+		repo.Logger.Error("ensure-dirs-exist", err, lager.Data{
+			"instance_id": instance.ID,
+		})
+		return err
+	}
+
+	err = repo.Lock(instance)
+	if err != nil {
+		repo.Logger.Error("lock-shared-instance", err, lager.Data{
+			"instance_id": instance.ID,
+		})
+		return err
+	}
+
+	err = repo.WriteConfigFile(instance)
+	if err != nil {
+		repo.Logger.Error("write-config-file", err, lager.Data{
+			"instance_id": instance.ID,
+		})
+		return err
+	}
 
 	return nil
 }
@@ -84,31 +114,75 @@ func (repo *LocalRepository) lockFilePath(instance *Instance) string {
 	return filepath.Join(repo.InstanceBaseDir(instance.ID), "lock")
 }
 
-func (repo *LocalRepository) AllInstances() ([]*Instance, error) {
+func (repo *LocalRepository) allInstances(verbose bool) ([]*Instance, []error) {
+	if verbose {
+		repo.Logger.Info("all-instances", lager.Data{
+			"message": fmt.Sprintf("Starting shared instance lookup in data directory: %s", repo.RedisConf.InstanceDataDirectory),
+		})
+	}
+
 	instances := []*Instance{}
 
 	instanceDirs, err := ioutil.ReadDir(repo.RedisConf.InstanceDataDirectory)
 	if err != nil {
-		return instances, err
+		repo.Logger.Error("all-instances", err, lager.Data{
+			"message":        "Error finding shared instances",
+			"data-directory": repo.RedisConf.InstanceDataDirectory,
+		})
+		return instances, []error{err}
 	}
+
+	var pluralisedInstance string
+	if len(instanceDirs) == 1 {
+		pluralisedInstance = "instance"
+	} else {
+		pluralisedInstance = "instances"
+	}
+
+	if verbose {
+		repo.Logger.Info("all-instances", lager.Data{
+			"message": fmt.Sprintf("%d shared Redis %s found", len(instanceDirs), pluralisedInstance),
+		})
+	}
+
+	errs := []error{}
 
 	for _, instanceDir := range instanceDirs {
 
 		instance, err := repo.FindByID(instanceDir.Name())
 
 		if err != nil {
-			return instances, err
+			repo.Logger.Error("all-instances", err, lager.Data{
+				"message": fmt.Sprintf("Error getting instance details for instance ID: %s", instanceDir.Name()),
+			})
+
+			errs = append(errs, err)
+			continue
+		}
+
+		if verbose {
+			repo.Logger.Info("all-instances", lager.Data{
+				"message": fmt.Sprintf("Found shared instance: %s", instance.ID),
+			})
 		}
 
 		instances = append(instances, instance)
 	}
 
-	return instances, nil
+	return instances, errs
 }
 
-func (repo *LocalRepository) InstanceCount() (int, error) {
-	instances, err := repo.AllInstances()
-	return len(instances), err
+func (repo *LocalRepository) AllInstancesVerbose() ([]*Instance, []error) {
+	return repo.allInstances(true)
+}
+
+func (repo *LocalRepository) AllInstances() ([]*Instance, []error) {
+	return repo.allInstances(false)
+}
+
+func (repo *LocalRepository) InstanceCount() (int, []error) {
+	instances, errs := repo.AllInstances()
+	return len(instances), errs
 }
 
 func (repo *LocalRepository) Bind(instanceID string, bindingID string) (broker.InstanceCredentials, error) {
@@ -138,11 +212,21 @@ func (repo *LocalRepository) Delete(instanceID string) error {
 		return err
 	}
 
+	err = os.Remove(repo.InstancePidFilePath(instanceID))
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
 func (repo *LocalRepository) EnsureDirectoriesExist(instance *Instance) error {
 	err := os.MkdirAll(repo.InstanceDataDir(instance.ID), 0755)
+	if err != nil {
+		return err
+	}
+
+	err = os.MkdirAll(repo.RedisConf.PidfileDirectory, 0755)
 	if err != nil {
 		return err
 	}
@@ -187,7 +271,7 @@ func (repo *LocalRepository) InstanceConfigPath(instanceID string) string {
 }
 
 func (repo *LocalRepository) InstancePidFilePath(instanceID string) string {
-	return path.Join(repo.InstanceBaseDir(instanceID), "redis-server.pid")
+	return path.Join(repo.RedisConf.PidfileDirectory, instanceID+".pid")
 }
 
 func (repo *LocalRepository) InstancePid(instanceID string) (pid int, err error) {

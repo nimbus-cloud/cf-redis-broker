@@ -1,9 +1,9 @@
 package brokerintegration_test
 
 import (
-	"code.google.com/p/go-uuid/uuid"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/pborman/uuid"
 )
 
 var _ = Describe("Provision dedicated instance", func() {

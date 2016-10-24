@@ -9,10 +9,16 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+const TestDataDir = "/tmp/redis-data-dir"
+const TestLogDir = "/tmp/redis-log-dir"
+const TestConfigDir = "/tmp/redis-config-dir"
+const TestPidfileDir = "/tmp/pidfiles"
+
 func ResetTestDirs() {
-	removeAndRecreateDir("/tmp/redis-data-dir")
-	removeAndRecreateDir("/tmp/redis-log-dir")
-	removeAndRecreateDir("/tmp/redis-config-dir")
+	removeAndRecreateDir(TestDataDir)
+	removeAndRecreateDir(TestLogDir)
+	removeAndRecreateDir(TestConfigDir)
+	removeAndRecreateDir(TestPidfileDir)
 }
 
 func CreateTestDirs() (string, string, string) {

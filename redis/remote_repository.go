@@ -3,6 +3,7 @@ package redis
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"sync"
@@ -10,6 +11,7 @@ import (
 	"github.com/pivotal-cf/brokerapi"
 	"github.com/pivotal-cf/cf-redis-broker/broker"
 	"github.com/pivotal-cf/cf-redis-broker/brokerconfig"
+	"github.com/pivotal-golang/lager"
 )
 
 type RemoteRepository struct {
@@ -21,6 +23,7 @@ type RemoteRepository struct {
 	statefilePath      string
 	agentPort          string
 	sync.RWMutex
+	logger lager.Logger
 }
 
 type AgentClient interface {
@@ -28,13 +31,14 @@ type AgentClient interface {
 	Credentials(hostIP string) (Credentials, error)
 }
 
-func NewRemoteRepository(agentClient AgentClient, config brokerconfig.Config) (*RemoteRepository, error) {
+func NewRemoteRepository(agentClient AgentClient, config brokerconfig.Config, logger lager.Logger) (*RemoteRepository, error) {
 	repo := RemoteRepository{
 		instanceLimit:    len(config.RedisConfiguration.Dedicated.Nodes),
-		instanceBindings: map[string][]string{},
+		instanceBindings: make(map[string][]string),
 		statefilePath:    config.RedisConfiguration.Dedicated.StatefilePath,
 		agentClient:      agentClient,
 		agentPort:        config.AgentPort,
+		logger:           logger,
 	}
 
 	err := repo.loadStateFromFile()
@@ -238,6 +242,10 @@ type Statefile struct {
 	InstanceBindings   map[string][]string `json:"instance_bindings"`
 }
 
+func newStatefile() Statefile {
+	return Statefile{InstanceBindings: make(map[string][]string)}
+}
+
 func (repo *RemoteRepository) PersistStatefile() error {
 	statefileContents := Statefile{
 		AvailableInstances: repo.availableInstances,
@@ -262,19 +270,67 @@ func (repo *RemoteRepository) IDForHost(host string) string {
 	return ""
 }
 
-func (repo *RemoteRepository) loadStateFromFile() error {
-	statefileContents := Statefile{}
+func (repo *RemoteRepository) StateFromFile() (Statefile, error) {
+	repo.logger.Info(fmt.Sprintf("Starting dedicated instance lookup in statefile: %s", repo.statefilePath))
+
+	statefileContents := newStatefile()
 
 	if _, err := os.Stat(repo.statefilePath); os.IsNotExist(err) {
-		return nil
+		repo.logger.Info(fmt.Sprintf(
+			"statefile %s not found, generating instead",
+			repo.statefilePath,
+		))
+		repo.logger.Info("all-instances", lager.Data{
+			"message": "0 dedicated Redis instances found",
+		})
+		return statefileContents, nil
 	}
 
 	stateBytes, err := ioutil.ReadFile(repo.statefilePath)
 	if err != nil {
-		return err
+		repo.logger.Error(
+			"failed to read statefile",
+			err, lager.Data{"statefilePath": repo.statefilePath},
+		)
+		return statefileContents, err
 	}
 
 	err = json.Unmarshal(stateBytes, &statefileContents)
+	if err != nil {
+		repo.logger.Error(
+			"failed to read statefile due to invalid JSON",
+			err,
+			lager.Data{
+				"statefilePath":     repo.statefilePath,
+				"stateFileContents": string(stateBytes),
+			},
+		)
+		return statefileContents, err
+	}
+
+	var pluralisedInstance string
+
+	if len(statefileContents.AllocatedInstances) == 1 {
+		pluralisedInstance = "instance"
+	} else {
+		pluralisedInstance = "instances"
+	}
+
+	repo.logger.Info("all-instances", lager.Data{
+		"message": fmt.Sprintf("%d dedicated Redis %s found", len(statefileContents.AllocatedInstances), pluralisedInstance),
+	})
+
+	for _, instance := range statefileContents.AllocatedInstances {
+		repo.logger.Info("all-instances", lager.Data{
+			"message": fmt.Sprintf("Found dedicated instance: %s", instance.ID),
+		})
+	}
+
+	return statefileContents, nil
+}
+
+func (repo *RemoteRepository) loadStateFromFile() error {
+	statefileContents, err := repo.StateFromFile()
 	if err != nil {
 		return err
 	}

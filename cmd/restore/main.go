@@ -123,6 +123,7 @@ func main() {
 		Logger:                    logger,
 		ProcessChecker:            &process.ProcessChecker{},
 		ProcessKiller:             processKiller,
+		PingFunc:                  redis.PingServer,
 		WaitUntilConnectableFunc:  availability.Check,
 		RedisServerExecutablePath: config.RedisServerExecutablePath,
 	}

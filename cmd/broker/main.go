@@ -3,6 +3,8 @@ package main
 import (
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/pivotal-cf/brokerapi"
 	"github.com/pivotal-cf/brokerapi/auth"
@@ -25,6 +27,8 @@ func main() {
 	brokerLogger.RegisterSink(lager.NewWriterSink(os.Stdout, lager.DEBUG))
 	brokerLogger.RegisterSink(lager.NewWriterSink(os.Stderr, lager.ERROR))
 
+	brokerLogger.Info("Starting CF Redis broker")
+
 	brokerLogger.Info("Config File: " + brokerConfigPath)
 
 	config, err := brokerconfig.ParseConfig(brokerConfigPath)
@@ -38,9 +42,9 @@ func main() {
 		Logger: brokerLogger,
 	}
 
-	localRepo := &redis.LocalRepository{
-		RedisConf: config.RedisConfiguration,
-	}
+	localRepo := redis.NewLocalRepository(config.RedisConfiguration, brokerLogger)
+
+	localRepo.AllInstancesVerbose()
 
 	processController := &redis.OSProcessController{
 		CommandRunner:            commandRunner,
@@ -48,6 +52,7 @@ func main() {
 		Logger:                   brokerLogger,
 		ProcessChecker:           &process.ProcessChecker{},
 		ProcessKiller:            &process.ProcessKiller{},
+		PingFunc:                 redis.PingServer,
 		WaitUntilConnectableFunc: availability.Check,
 	}
 
@@ -61,10 +66,20 @@ func main() {
 	agentClient := &redis.RemoteAgentClient{
 		HttpAuth: config.AuthConfiguration,
 	}
-	remoteRepo, err := redis.NewRemoteRepository(agentClient, config)
+	remoteRepo, err := redis.NewRemoteRepository(agentClient, config, brokerLogger)
 	if err != nil {
 		brokerLogger.Fatal("Error initializing remote repository", err)
 	}
+
+	sigChannel := make(chan os.Signal, 1)
+	signal.Notify(sigChannel, syscall.SIGTERM)
+	go func() {
+		<-sigChannel
+		brokerLogger.Info("Starting Redis Broker shutdown")
+		localRepo.AllInstancesVerbose()
+		remoteRepo.StateFromFile()
+		os.Exit(0)
+	}()
 
 	serviceBroker := &broker.RedisServiceBroker{
 		InstanceCreators: map[string]broker.InstanceCreator{
