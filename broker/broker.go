@@ -3,6 +3,7 @@ package broker
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/pivotal-cf/brokerapi"
 	"github.com/pivotal-cf/cf-redis-broker/brokerconfig"
@@ -126,9 +127,13 @@ func (redisServiceBroker *RedisServiceBroker) Bind(instanceID, bindingID string,
 				return binding, err
 			}
 			credentialsMap := map[string]interface{}{
-				"host":     instanceCredentials.Host,
+				//"host":     instanceCredentials.Host,
+				"host":     redisServiceBroker.Config.RedisConfiguration.HostName,
+				"hostname": redisServiceBroker.Config.RedisConfiguration.HostName,
 				"port":     instanceCredentials.Port,
+				"name": 	instanceID,
 				"password": instanceCredentials.Password,
+				"firewall_allow_rules": strings.Join(redisServiceBroker.Config.RedisConfiguration.FirewallAllowRules, ","),
 			}
 
 			binding.Credentials = credentialsMap

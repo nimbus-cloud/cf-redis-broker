@@ -38,6 +38,10 @@ type ServiceConfiguration struct {
 	InstanceLogDirectory        string    `yaml:"log_directory"`
 	ServiceInstanceLimit        int       `yaml:"service_instance_limit"`
 	Dedicated                   Dedicated `yaml:"dedicated"`
+
+	FirewallAllowRules          []string  `yaml:"firewall_allow_rules"`
+	HostName                    string    `yaml:"host_name"`
+
 	Description                 string    `yaml:"description"`
 	LongDescription             string    `yaml:"long_description"`
 	ProviderDisplayName         string    `yaml:"provider_display_name"`
