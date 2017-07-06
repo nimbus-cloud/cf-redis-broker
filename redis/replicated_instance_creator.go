@@ -14,7 +14,7 @@ type ReplicatedInstanceCreator struct {
 }
 
 func NewReplicatedInstanceCreator(localCreator *LocalInstanceCreator, config brokerconfig.Config) broker.InstanceCreator {
-	slaveBrokerClient := NewSlaveBrokerClient(config.RedisConfiguration.OtherSideIP, config.Port,
+	slaveBrokerClient := NewSlaveBrokerClient(config.RedisConfiguration.OtherSideIP, config.RedisConfiguration.BrokerPort,
 		config.AuthConfiguration.Username, config.AuthConfiguration.Password)
 
 	replicatedInstanceCreator := &ReplicatedInstanceCreator{

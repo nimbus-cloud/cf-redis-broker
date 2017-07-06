@@ -43,6 +43,7 @@ type ServiceConfiguration struct {
 	HostName                    string    `yaml:"host_name"`
 	Master                    	bool      `yaml:"master"`
 	OtherSideIP                 string    `yaml:"other_side_ip"`
+	BrokerPort                  string    `yaml:"broker_nginx_port"`
 
 	Description                 string    `yaml:"description"`
 	LongDescription             string    `yaml:"long_description"`
