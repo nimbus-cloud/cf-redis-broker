@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
+	"github.com/pivotal-cf/cf-redis-broker/brokerconfig"
 )
 
 type fakeProcessChecker struct {
@@ -74,6 +75,7 @@ var _ = Describe("Redis Process Controller", func() {
 			func(*net.TCPAddr, time.Duration) error {
 				return connectionTimeoutErr
 			},
+			brokerconfig.ServiceConfiguration{},
 			"",
 		)
 		processController.exec = fakes.Exec

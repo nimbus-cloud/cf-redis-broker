@@ -13,6 +13,7 @@ import (
 	"github.com/BooleanCat/igo/ios/iexec"
 
 	"github.com/pivotal-cf/cf-redis-broker/redis/client"
+	"github.com/pivotal-cf/cf-redis-broker/brokerconfig"
 )
 
 const redisStartTimeout time.Duration = 10 * time.Second
@@ -37,7 +38,7 @@ type OSProcessController struct {
 	PingFunc                  PingServerFunc
 	WaitUntilConnectableFunc  WaitUntilConnectableFunc
 	RedisServerExecutablePath string
-
+	RedisConfiguration 		  brokerconfig.ServiceConfiguration
 	exec iexec.Exec
 }
 
@@ -48,6 +49,7 @@ func NewOSProcessController(
 	processKiller ProcessKiller,
 	pingFunc PingServerFunc,
 	waitUntilConnectableFunc WaitUntilConnectableFunc,
+	redisConfiguration brokerconfig.ServiceConfiguration,
 	redisServerExecutablePath string,
 ) *OSProcessController {
 	return &OSProcessController{
@@ -58,6 +60,7 @@ func NewOSProcessController(
 		PingFunc:                  pingFunc,
 		WaitUntilConnectableFunc:  waitUntilConnectableFunc,
 		RedisServerExecutablePath: redisServerExecutablePath,
+		RedisConfiguration: 	   redisConfiguration,
 		exec: iexec.New(),
 	}
 }
@@ -84,6 +87,16 @@ func (controller *OSProcessController) StartAndWaitUntilReady(instance *Instance
 		"--dir", instanceDataDir,
 		"--logfile", logfilePath,
 	}
+
+	// Setup slave replication on a slave node: --slaveof 127.0.0.1 5678 --masterauth password
+	if !controller.RedisConfiguration.Master && controller.RedisConfiguration.SlaveOf != "" {
+		slaveArgs := []string{
+			"--slaveof", controller.RedisConfiguration.SlaveOf + " " + strconv.Itoa(instance.Port),
+			"--masterauth", instance.Password,
+		}
+		instanceCommandArgs = append(instanceCommandArgs, slaveArgs...)
+	}
+
 	return controller.StartAndWaitUntilReadyWithConfig(instance, instanceCommandArgs, timeout)
 }
 

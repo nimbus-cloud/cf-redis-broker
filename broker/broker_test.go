@@ -97,6 +97,7 @@ var _ = Describe("Redis service broker", func() {
 					Dedicated: brokerconfig.Dedicated{
 						Nodes: []string{"10.0.0.1", "10.0.0.2", "10.0.0.3"},
 					},
+					HostName: "an_host",
 				},
 			},
 		}
@@ -203,7 +204,9 @@ var _ = Describe("Redis service broker", func() {
 				expectedCredentials := brokerapi.Binding{
 					Credentials: map[string]interface{}{
 						"host":     host,
+						"hostname": host,
 						"port":     port,
+						"name": instanceID,
 						"password": password,
 						"firewall_allow_rules": "",
 					},

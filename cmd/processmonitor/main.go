@@ -46,6 +46,7 @@ func main() {
 		new(process.ProcessKiller),
 		redis.PingServer,
 		availability.Check,
+		config.RedisConfiguration,
 		"",
 	)
 

@@ -41,6 +41,9 @@ type ServiceConfiguration struct {
 
 	FirewallAllowRules          []string  `yaml:"firewall_allow_rules"`
 	HostName                    string    `yaml:"host_name"`
+	Master                    	bool      `yaml:"master"`
+	SlaveOf                    	string    `yaml:"slave_of"`
+	OtherSideIP                 string    `yaml:"other_side_ip"`
 
 	Description                 string    `yaml:"description"`
 	LongDescription             string    `yaml:"long_description"`

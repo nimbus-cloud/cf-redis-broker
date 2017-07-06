@@ -76,6 +76,42 @@ func (localInstanceCreator *LocalInstanceCreator) Create(instanceID string) erro
 	return nil
 }
 
+// master/slave replication - this method is called from the master node via the agent
+func (localInstanceCreator *LocalInstanceCreator) CreateSlaveInstance(port int, instanceID, password string) error {
+	instanceCount, errs := localInstanceCreator.InstanceCount()
+	if len(errs) > 0 {
+		return errors.New("Failed to determine current instance count, view broker logs for details")
+	}
+
+	if instanceCount >= localInstanceCreator.RedisConfiguration.ServiceInstanceLimit {
+		return brokerapi.ErrInstanceLimitMet
+	}
+
+	instance := &Instance{
+		ID:       instanceID,
+		Port:     port,
+		Host:     localInstanceCreator.RedisConfiguration.Host,
+		Password: password,
+	}
+
+	err := localInstanceCreator.Setup(instance)
+	if err != nil {
+		return err
+	}
+
+	err = localInstanceCreator.startLocalInstance(instance)
+	if err != nil {
+		return err
+	}
+
+	err = localInstanceCreator.Unlock(instance)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (localInstanceCreator *LocalInstanceCreator) Destroy(instanceID string) error {
 	instance, err := localInstanceCreator.FindByID(instanceID)
 	if err != nil {

@@ -20,6 +20,7 @@ import (
 	"github.com/pivotal-cf/cf-redis-broker/redis"
 	"github.com/pivotal-cf/cf-redis-broker/redisinstance"
 	"github.com/pivotal-cf/cf-redis-broker/system"
+	"encoding/json"
 )
 
 func main() {
@@ -51,6 +52,7 @@ func main() {
 		new(process.ProcessKiller),
 		redis.PingServer,
 		availability.Check,
+		config.RedisConfiguration,
 		"",
 	)
 
@@ -60,6 +62,8 @@ func main() {
 		ProcessController:       processController,
 		LocalInstanceRepository: localRepo,
 	}
+
+	replicatedCreator := redis.NewReplicatedInstanceCreator(localCreator, config)
 
 	agentClient := redis.NewRemoteAgentClient(
 		config.AgentPort,
@@ -97,7 +101,7 @@ func main() {
 
 	serviceBroker := &broker.RedisServiceBroker{
 		InstanceCreators: map[string]broker.InstanceCreator{
-			"shared":    localCreator,
+			"shared":    replicatedCreator,
 			"dedicated": remoteRepo,
 		},
 		InstanceBinders: map[string]broker.InstanceBinder{
@@ -117,9 +121,11 @@ func main() {
 	authWrapper := auth.NewWrapper(brokerCredentials.Username, brokerCredentials.Password)
 	debugHandler := authWrapper.WrapFunc(debug.NewHandler(remoteRepo))
 	instanceHandler := authWrapper.WrapFunc(redisinstance.NewHandler(remoteRepo))
+	slaveHandler := authWrapper.WrapFunc(newSlaveHandler(localCreator))
 
 	http.HandleFunc("/instance", instanceHandler)
 	http.HandleFunc("/debug", debugHandler)
+	http.HandleFunc("/provisionslave", slaveHandler)
 	http.Handle("/", brokerAPI)
 
 	brokerLogger.Fatal("http-listen", http.ListenAndServe(config.Host+":"+config.Port, nil))
@@ -137,5 +143,44 @@ func setPidDir(localRepo *redis.LocalRepository) {
 	pidDir := os.Getenv("SHARED_PID_DIR")
 	if pidDir != "" {
 		localRepo.RedisConf.PidfileDirectory = pidDir
+	}
+}
+
+// this handler sets up a slave instance
+func newSlaveHandler(localCreator *redis.LocalInstanceCreator) http.HandlerFunc {
+	return func(res http.ResponseWriter, req *http.Request) {
+		res.Header().Add("Content-Type", "application/json")
+
+		if req.Method != "PUT" {
+			http.Error(res, "only PUT method accepted", http.StatusMethodNotAllowed)
+			return
+		}
+
+		decoder := json.NewDecoder(req.Body)
+		var instance redis.Instance
+		err := decoder.Decode(&instance)
+		if err != nil {
+			http.Error(res, "Error parsing request body:" + err.Error(), http.StatusInternalServerError)
+			return
+		}
+		defer req.Body.Close()
+
+		exists, err := localCreator.InstanceExists(instance.ID)
+		if err != nil {
+			http.Error(res, "Error checking if instance already exists:" + err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		if exists {
+			http.Error(res, "Instance already exists", http.StatusInternalServerError)
+			return
+		}
+
+		err = localCreator.CreateSlaveInstance(instance.Port, instance.ID, instance.Password)
+		if err != nil {
+			http.Error(res, "Error setting up slave instance", http.StatusInternalServerError)
+			return
+		}
+
 	}
 }
