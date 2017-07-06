@@ -178,7 +178,7 @@ func newSlaveHandler(localCreator *redis.LocalInstanceCreator) http.HandlerFunc 
 
 		err = localCreator.CreateSlaveInstance(instance.Port, instance.ID, instance.Password)
 		if err != nil {
-			http.Error(res, "Error setting up slave instance", http.StatusInternalServerError)
+			http.Error(res, "Error setting up slave instance: " + err.Error(), http.StatusInternalServerError)
 			return
 		}
 
