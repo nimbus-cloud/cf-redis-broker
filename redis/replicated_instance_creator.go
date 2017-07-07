@@ -3,7 +3,6 @@ package redis
 import (
 	"github.com/pivotal-cf/cf-redis-broker/brokerconfig"
 	"github.com/pivotal-cf/cf-redis-broker/broker"
-	"code.cloudfoundry.org/cli/cf/errors"
 )
 
 var _ = broker.InstanceCreator(&ReplicatedInstanceCreator{})
