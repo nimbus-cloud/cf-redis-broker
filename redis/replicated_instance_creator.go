@@ -3,6 +3,7 @@ package redis
 import (
 	"github.com/pivotal-cf/cf-redis-broker/brokerconfig"
 	"github.com/pivotal-cf/cf-redis-broker/broker"
+	"code.cloudfoundry.org/cli/cf/errors"
 )
 
 var _ = broker.InstanceCreator(&ReplicatedInstanceCreator{})
@@ -35,12 +36,10 @@ func (replicatedCreator *ReplicatedInstanceCreator) Create(instanceID string) er
 
 	if replicatedCreator.config.RedisConfiguration.Master {
 		instance, err := replicatedCreator.localCreator.FindByID(instanceID)
-		if err != nil {
-			return err
-		}
 
 		err = replicatedCreator.slaveBrokerClient.CreateSlaveInstance(instance)
 		if err != nil {
+			replicatedCreator.localCreator.Destroy(instanceID)
 			return err
 		}
 	}
