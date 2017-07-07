@@ -15,8 +15,11 @@ redis:
   support_url: http://support.pivotal.io
   display_name: Redis
   description: Redis service to provide a key-value store
-  firewall_allow_rules: []
   host_name: localhost
+  firewall_allow_rules: []
+  master: true
+  other_side_ip: 127.0.0.1
+  broker_nginx_port: 12350
   dedicated:
     nodes:
     - server1.lvh.me
