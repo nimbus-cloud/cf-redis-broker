@@ -91,7 +91,7 @@ func (controller *OSProcessController) StartAndWaitUntilReady(instance *Instance
 	// Setup slave replication on a slave node: --slaveof 127.0.0.1 5678 --masterauth password
 	if !controller.RedisConfiguration.Master && controller.RedisConfiguration.OtherSideIP != "" {
 		slaveArgs := []string{
-			"--slaveof", controller.RedisConfiguration.OtherSideIP + " " + strconv.Itoa(instance.Port),
+			"--slaveof", controller.RedisConfiguration.OtherSideIP, strconv.Itoa(instance.Port),
 			"--masterauth", instance.Password,
 		}
 		instanceCommandArgs = append(instanceCommandArgs, slaveArgs...)
