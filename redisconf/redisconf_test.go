@@ -77,7 +77,8 @@ var _ = Describe("redisconf", func() {
 				"appendonly yes\n" +
 				"client-output-buffer-limit normal 0 0 0\n" +
 				"save 900 1\n" +
-				"save 300 10\n"
+				"save 300 10\n" +
+				"bind 0.0.0.0\n"
 
 			Expect(string(input.Encode())).To(Equal(expectedOutput))
 		})
@@ -228,5 +229,15 @@ var _ = Describe("redisconf", func() {
 			Expect(resultingConf.Get("requirepass")).To(Equal(password))
 			Expect(resultingConf.Get("pidfile")).To(Equal(filepath.Join(dir, instanceID+".pid")))
 		})
+
+		It("restricts the file permissions", func() {
+			info, _ := os.Stat(filepath.Join(dir, "redis.conf"))
+			fmt.Println(filepath.Join(dir, "redis.conf"))
+			Expect(getPermissions(int(info.Mode()))).To(Equal(0640))
+		})
 	})
 })
+
+func getPermissions(fileMode int) int {
+	return int(os.FileMode(fileMode).Perm())
+}

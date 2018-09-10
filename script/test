@@ -5,42 +5,23 @@ set -e
 set -o pipefail
 
 test_args=$@
-export PATH=$RBENV_ROOT/bin:$RBENV_ROOT/shims:$GOROOT/bin:$GOPATH/bin:$PATH
 
-main() {
-  setup_go
-  run_go_vet
-  run_tests
-}
+export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
 
-run_go_vet() {
-  __message "Running go vet"
-  all_go_code_except_Godeps | xargs go tool vet
-}
-
-all_go_code_except_Godeps() {
-  find . -maxdepth 1 -type d -not -path "*/Godeps*" -a -not -path '*/.git*' -a -not -path '.'
-}
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+PROJECT_DIR="$( dirname $SCRIPT_DIR )"
 
 __message() {
   local _message=$1
   echo -e "${_message}..."
 }
 
-run_tests() {
+main() {
   __message "Running tests"
 
-  GOPATH=$PWD/Godeps/_workspace:$GOPATH \
-    ginkgo -r -race --keepGoing -randomizeAllSpecs -skipMeasurements -failOnPending -cover $test_args
+  ginkgo -r -race --keepGoing -randomizeAllSpecs -skipMeasurements -failOnPending -cover $test_args
 }
 
-setup_go() {
-  eval "$(gimme 1.7.4)"
-  go get github.com/onsi/ginkgo/ginkgo \
-  golang.org/x/tools/cmd/cover \
-  github.com/golang/lint/golint \
-  github.com/tools/godep \
-  github.com/progrium/basht
-}
-
-main
+pushd $PROJECT_DIR
+  main
+popd
